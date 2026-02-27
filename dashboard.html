@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debetorka</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Outfit', sans-serif; background-color: #f8fafc; }
+        .accordion-content { max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out; }
+        .accordion-open .accordion-content { max-height: 2000px; transition: max-height 0.5s ease-in; }
+        .accordion-open .rotate-icon { transform: rotate(180deg); }
+        .zone-header { cursor: pointer; transition: all 0.2s; }
+        .zone-header:hover { background-color: #f1f5f9; }
+    </style>
+</head>
+<body class="text-slate-900">
+    <div class="flex flex-col lg:flex-row min-h-screen">
+        
+        <div class="w-full lg:w-80 bg-slate-950 text-white p-8 shrink-0 shadow-2xl z-10 flex flex-col">
+            <div class="sticky top-8 flex flex-col h-full min-h-[90vh]">
+                <div class="mb-12">
+                    <p class="text-blue-500 font-bold text-[10px] uppercase tracking-[0.2em] mb-2">Tizim Nazorati</p>
+                    <h1 id="sidebarAgent" class="text-3xl font-900 tracking-tight italic">...</h1>
+                    <div class="mt-2 h-1 w-12 bg-blue-600 rounded-full"></div>
+                </div>
+
+                <div id="monthlyStats" class="space-y-3 mb-12 overflow-y-auto flex-1">
+                    <p class="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-4">Kechikishlar (Oylar)</p>
+                </div>
+
+                <div class="mt-auto space-y-3">
+                    <button onclick="location.reload()" class="w-full py-4 bg-slate-800 text-white rounded-2xl font-800 hover:bg-blue-600 transition-all duration-300 shadow-lg border border-slate-700">
+                        🔄 YANGILASH
+                    </button>
+                    
+                    <a href="index.html" class="flex items-center justify-center gap-2 w-full py-4 bg-red-500/10 text-red-500 rounded-2xl font-800 hover:bg-red-500 hover:text-white transition-all duration-300 border border-red-500/20">
+                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013-3v1" />
+                        </svg>
+                        CHIQISH
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex-1 p-6 md:p-12 max-w-7xl mx-auto w-full">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10 text-center">
+                <div class="bg-white p-6 rounded-3xl shadow-sm border-t-4 border-red-500">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Muddati o'tgan</p>
+                    <h2 id="sumExpired" class="text-2xl font-900 text-slate-900 my-1">0</h2>
+                    <span id="countExpired" class="text-[11px] font-bold bg-red-50 text-red-600 px-2 py-1 rounded-md">0 ta mijoz</span>
+                </div>
+                <div class="bg-white p-6 rounded-3xl shadow-sm border-t-4 border-amber-500">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bugun to'lov</p>
+                    <h2 id="sumToday" class="text-2xl font-900 text-slate-900 my-1">0</h2>
+                    <span id="countToday" class="text-[11px] font-bold bg-amber-50 text-amber-600 px-2 py-1 rounded-md">0 ta mijoz</span>
+                </div>
+                <div class="bg-white p-6 rounded-3xl shadow-sm border-t-4 border-emerald-500">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Muddati bor</p>
+                    <h2 id="sumPending" class="text-2xl font-900 text-slate-900 my-1">0</h2>
+                    <span id="countPending" class="text-[11px] font-bold bg-emerald-50 text-emerald-600 px-2 py-1 rounded-md">0 ta mijoz</span>
+                </div>
+                <div class="bg-blue-600 p-6 rounded-3xl shadow-xl shadow-blue-200">
+                    <p class="text-[10px] font-black text-blue-100 uppercase tracking-widest">Umumiy qarz</p>
+                    <h2 id="sumTotal" class="text-2xl font-900 text-white my-1">0</h2>
+                    <span id="countTotal" class="text-[11px] font-bold bg-blue-500 text-white px-2 py-1 rounded-md">0 ta mijoz</span>
+                </div>
+            </div>
+
+            <div class="mb-10 group">
+                <input type="text" id="searchInput" onkeyup="handleSearch()" placeholder="Mijoz qidirish..." 
+                    class="w-full p-6 bg-white rounded-[2rem] shadow-sm border-none outline-none focus:ring-4 ring-blue-500/10 text-lg font-600 transition-all">
+            </div>
+
+            <div id="resultsArea" class="space-y-4"></div>
+        </div>
+    </div>
+
+   <script>
+    const agent = new URLSearchParams(window.location.search).get('agent');
+    let rawData = [];
+
+    async function init() {
+        if (!agent) { window.location.href = 'index.html'; return; }
+        try {
+            const res = await fetch(`https://debetorka-c758e-default-rtdb.europe-west1.firebasedatabase.app/reports/${encodeURIComponent(agent)}.json`);
+            const data = await res.json();
+            if (!data) return;
+            rawData = data.zones;
+            document.getElementById('sidebarAgent').innerText = data.agent;
+            processStats(data.zones);
+            render(data.zones);
+        } catch (e) { console.error(e); }
+    }
+
+    function processStats(zones) {
+        let s = { ex: 0, exC: 0, to: 0, toC: 0, pe: 0, peC: 0, tt: 0, ttC: 0, m: {} };
+        const now = new Date(); now.setHours(0, 0, 0, 0);
+
+        zones.forEach(z => {
+            if (z.debtors) {
+                z.debtors.forEach(d => {
+                    s.tt += d.a; 
+                    s.ttC++;
+
+                    if (d.d === "No Date") {
+                        // Муддати йўқларни "Muddati bor" (Emerald) қаторига қўшамиз
+                        s.pe += d.a;
+                        s.peC++;
+                    } else {
+                        const dDate = new Date(d.d); 
+                        dDate.setHours(0, 0, 0, 0);
+                        const diff = Math.ceil((dDate - now) / 86400000);
+
+                        if (diff < 0) { 
+                            s.ex += d.a; s.exC++;
+                            let k = dDate.toLocaleString('uz-UZ', { month: 'long', year: 'numeric' });
+                            s.m[k] = (s.m[k] || 0) + 1;
+                        } else if (diff === 0) { 
+                            s.to += d.a; s.toC++;
+                        } else { 
+                            s.pe += d.a; s.peC++;
+                        }
+                    }
+                });
+            }
+        });
+
+        const f = (n) => n.toLocaleString();
+        document.getElementById('sumTotal').innerText = f(s.tt);
+        document.getElementById('sumExpired').innerText = f(s.ex);
+        document.getElementById('sumToday').innerText = f(s.to);
+        document.getElementById('sumPending').innerText = f(s.pe);
+
+        document.getElementById('countTotal').innerText = s.ttC + " ta mijoz";
+        document.getElementById('countExpired').innerText = s.exC + " ta mijoz";
+        document.getElementById('countToday').innerText = s.toC + " ta mijoz";
+        document.getElementById('countPending').innerText = s.peC + " ta mijoz";
+
+        const mBox = document.getElementById('monthlyStats');
+        mBox.innerHTML = '<p class="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-4">Kechikishlar (Oylar)</p>';
+        Object.keys(s.m).sort().forEach(m => {
+            mBox.innerHTML += `<div class="flex justify-between bg-white/5 p-3 rounded-xl text-[11px] font-bold border border-white/5 shadow-sm"><span class="text-slate-400">${m}</span><span class="text-red-400">${s.m[m]} ta</span></div>`;
+        });
+    }
+
+    function render(zones, openAll = false) {
+        const area = document.getElementById('resultsArea');
+        area.innerHTML = '';
+        const now = new Date(); now.setHours(0, 0, 0, 0);
+
+        zones.forEach((z, idx) => {
+            let html = `<div id="item-${idx}" class="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden ${openAll ? 'accordion-open' : ''}">
+                <div onclick="toggleAccordion(${idx})" class="zone-header p-7 flex justify-between items-center select-none">
+                    <div class="flex items-center gap-4">
+                        <div class="rotate-icon transition-transform duration-300 bg-slate-100 p-2 rounded-full text-slate-400">
+                            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="3" stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                        </div>
+                        <div>
+                            <h3 class="font-900 text-sm uppercase tracking-tighter text-slate-800">${z.name}</h3>
+                            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">${z.debtors ? z.debtors.length : 0} ta mijoz</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-lg font-900 text-blue-600 leading-none">${z.total.toLocaleString()}</p>
+                    </div>
+                </div>
+                <div class="accordion-content border-t border-slate-50">
+                    <div class="p-4 space-y-1">`;
+
+            if (z.debtors) {
+                z.debtors.forEach(d => {
+                    let stTxt = "", stCl = "";
+
+                    if (d.d === "No Date") {
+                        stTxt = "MUDDATI YO'Q";
+                        stCl = "bg-slate-100 text-slate-400";
+                    } else {
+                        const dDate = new Date(d.d); dDate.setHours(0, 0, 0, 0);
+                        const diff = Math.ceil((dDate - now) / 86400000);
+                        if (diff < 0) { stTxt = Math.abs(diff) + " KUN KECHIKDI"; stCl = "bg-red-50 text-red-600"; }
+                        else if (diff === 0) { stTxt = "BUGUN TO'LOV"; stCl = "bg-amber-100 text-amber-700 animate-pulse"; }
+                        else { stTxt = diff + " KUN QOLDI"; stCl = "bg-emerald-50 text-emerald-600"; }
+                    }
+
+                    html += `<div class="p-4 flex justify-between items-center hover:bg-slate-50 rounded-2xl transition-colors">
+                        <div class="flex-1 pr-4">
+                            <p class="font-800 text-slate-800 text-sm">${d.n}</p>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <p class="font-900 text-slate-900 text-sm">${d.a.toLocaleString()}</p>
+                            <div class="w-28 text-center shrink-0">
+                                <span class="block px-2 py-2 rounded-xl text-[8px] font-black tracking-tight ${stCl}">${stTxt}</span>
+                            </div>
+                        </div>
+                    </div>`;
+                });
+            }
+            area.innerHTML += html + `</div></div></div>`;
+        });
+    }
+
+    function toggleAccordion(id) {
+        document.getElementById('item-' + id).classList.toggle('accordion-open');
+    }
+
+    function handleSearch() {
+        const q = document.getElementById('searchInput').value.toLowerCase();
+        if (!q) { render(rawData); return; }
+        const filt = JSON.parse(JSON.stringify(rawData)).map(z => {
+            if(z.debtors) z.debtors = z.debtors.filter(d => d.n.toLowerCase().includes(q));
+            return z;
+        }).filter(z => z.debtors && z.debtors.length > 0);
+        render(filt, true);
+    }
+
+    init();
+</script>
+</body>
+</html>
