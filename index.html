@@ -13,17 +13,18 @@
         <div class="bg-white p-8 rounded-[2.5rem] shadow-xl shadow-blue-100/50 border border-slate-100">
             <div class="text-center mb-8">
                 <div class="inline-flex items-center justify-center w-20 h-20 bg-blue-600 rounded-[2rem] mb-6 shadow-lg shadow-blue-200">
-                    <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                    <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
                 </div>
-                <h1 class="text-2xl font-extrabold text-slate-800 tracking-tight">Debetorka Nazorati</h1>
-                <p class="text-slate-400 text-sm mt-2">Рўйхатдан ўз исмингизни танланг</p>
+                <h1 class="text-2xl font-extrabold text-slate-800 tracking-tight">Tizimga kirish</h1>
+                <p class="text-slate-400 text-sm mt-2">Profil va parolingizni kiriting</p>
             </div>
 
             <div class="space-y-4">
                 <div class="relative">
-                    <select id="agentSelect" 
+                    <select id="loginInput" 
                         class="w-full px-6 py-5 rounded-2xl bg-slate-50 border-2 border-transparent focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-50 transition-all outline-none font-bold text-slate-700 text-lg appearance-none cursor-pointer">
-                        <option value="" disabled selected>Агентни танланг...</option>
+                        <option value="" disabled selected>Логинни танланг...</option>
+                        <option value="Админ">Admin (Бошқарувчи)</option>
                         <option value="Шухрат">Шухрат</option>
                         <option value="Бобур">Бобур</option>
                         <option value="Бунед">Бунед</option>
@@ -35,9 +36,14 @@
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7"></path></svg>
                     </div>
                 </div>
+
+                <div>
+                    <input type="password" id="passInput" placeholder="Паролни киритинг..." 
+                        class="w-full px-6 py-5 rounded-2xl bg-slate-50 border-2 border-transparent focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-50 transition-all outline-none text-center font-bold text-slate-700 text-lg">
+                </div>
                 
-                <button onclick="login()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-5 rounded-2xl shadow-xl shadow-blue-200 transition-all active:scale-[0.96] tracking-wide uppercase text-sm">
-                    Debetorkani ko'rish
+                <button id="loginBtn" onclick="handleLogin()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-5 rounded-2xl shadow-xl shadow-blue-200 transition-all active:scale-[0.96] tracking-wide uppercase text-sm">
+                    Kirish
                 </button>
             </div>
             
@@ -48,13 +54,56 @@
     </div>
 
     <script>
-        function login() {
-            const agent = document.getElementById('agentSelect').value;
-            if (agent) {
-                // Танланган агент исмини URL-га юбориш
-                window.location.href = `dashboard.html?agent=${encodeURIComponent(agent)}`;
-            } else {
-                alert("Илтимос, олдин агентни танланг!");
+        // Enter тугмаси босилганда ҳам ишлаши учун
+        document.getElementById('passInput').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') handleLogin();
+        });
+
+        async function handleLogin() {
+            const login = document.getElementById('loginInput').value;
+            const pass = document.getElementById('passInput').value.trim();
+            const btn = document.getElementById('loginBtn');
+
+            if (!login) {
+                alert("Илтимос, логинни танланг!");
+                return;
+            }
+            if (!pass) {
+                alert("Илтимос, паролни киритинг!");
+                return;
+            }
+
+            // Тугмани "Текширилмоқда" ҳолатига ўтказиш
+            const originalText = btn.innerText;
+            btn.innerText = "ТЕКШИРИЛМОҚДА...";
+            btn.disabled = true;
+            btn.classList.add("opacity-70");
+
+            try {
+                // Firebase'дан фойдаланувчини текшириш
+                const res = await fetch(`https://debetorka-c758e-default-rtdb.europe-west1.firebasedatabase.app/users/${encodeURIComponent(login)}.json`);
+                const user = await res.json();
+
+                if (user && user.password === pass) {
+                    if (user.role === 'admin') {
+                        // Админ бўлса, admin.html га ўтади
+                        window.location.href = 'admin.html';
+                    } else {
+                        // Агент бўлса, аввалгидек ўз саҳифасига ўтади
+                        window.location.href = `dashboard.html?agent=${encodeURIComponent(login)}`;
+                    }
+                } else {
+                    alert("Пароль нотўғри! Қайта уриниб кўринг.");
+                    // Хато бўлса, тугмани асл ҳолатига қайтариш
+                    btn.innerText = originalText;
+                    btn.disabled = false;
+                    btn.classList.remove("opacity-70");
+                }
+            } catch (error) {
+                alert("Интернет ёки серверда хатолик юз берди!");
+                btn.innerText = originalText;
+                btn.disabled = false;
+                btn.classList.remove("opacity-70");
             }
         }
     </script>
