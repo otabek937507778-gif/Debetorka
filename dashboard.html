@@ -124,43 +124,55 @@
         } catch (e) { console.error(e); }
     }
 
-    function processStats(zones) {
-        let s = { ex: 0, exC: 0, to: 0, toC: 0, pe: 0, peC: 0, tt: 0, ttC: 0, m: {} };
-        const now = new Date(); now.setHours(0, 0, 0, 0);
-        monthlyDetails = {};
+   function processStats(zones) {
+    let s = { ex: 0, exC: 0, to: 0, toC: 0, pe: 0, peC: 0, tt: 0, ttC: 0, m: {} };
+    const now = new Date(); now.setHours(0, 0, 0, 0);
+    monthlyDetails = {};
 
-        zones.forEach(z => {
-            if (z.debtors) {
-                z.debtors.forEach(d => {
-                    s.tt += d.a; s.ttC++;
+    // Oylar massivi (Brauzer tiliga bog'lanib qolmaslik uchun)
+    const monthNames = [
+        "Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun", 
+        "Iyul", "Avgust", "Sentyabr", "Oktyabr", "Noyabr", "Dekabr"
+    ];
 
-                    if (d.d === "No Date") {
+    zones.forEach(z => {
+        if (z.debtors) {
+            z.debtors.forEach(d => {
+                s.tt += d.a; s.ttC++;
+
+                if (d.d === "No Date") {
+                    s.pe += d.a; s.peC++;
+                } else {
+                    const dDate = new Date(d.d); 
+                    dDate.setHours(0, 0, 0, 0);
+                    const diff = Math.ceil((dDate - now) / 86400000);
+
+                    if (diff < 0) { 
+                        s.ex += d.a; s.exC++;
+                        
+                        // EXPERT FIX: toLocaleString o'rniga massivdan foydalanamiz
+                        let monthName = monthNames[dDate.getMonth()];
+                        let year = dDate.getFullYear();
+                        let k = `${monthName}, ${year}`;
+
+                        if (!s.m[k]) s.m[k] = { count: 0, sum: 0 };
+                        if (!monthlyDetails[k]) monthlyDetails[k] = [];
+
+                        s.m[k].count++;
+                        s.m[k].sum += d.a;
+                        monthlyDetails[k].push({ ...d, diff: Math.abs(diff) });
+                    } else if (diff === 0) { 
+                        s.to += d.a; s.toC++;
+                    } else { 
                         s.pe += d.a; s.peC++;
-                    } else {
-                        const dDate = new Date(d.d); 
-                        dDate.setHours(0, 0, 0, 0);
-                        const diff = Math.ceil((dDate - now) / 86400000);
-
-                        if (diff < 0) { 
-                            s.ex += d.a; s.exC++;
-                            
-                            // Expert Grouping: Oylar bo'yicha summa va sonini hisoblash
-                            let k = dDate.toLocaleString('uz-UZ', { month: 'long', year: 'numeric' });
-                            if (!s.m[k]) s.m[k] = { count: 0, sum: 0 };
-                            if (!monthlyDetails[k]) monthlyDetails[k] = [];
-
-                            s.m[k].count++;
-                            s.m[k].sum += d.a;
-                            monthlyDetails[k].push({ ...d, diff: Math.abs(diff) });
-                        } else if (diff === 0) { 
-                            s.to += d.a; s.toC++;
-                        } else { 
-                            s.pe += d.a; s.peC++;
-                        }
                     }
-                });
-            }
-        });
+                }
+            });
+        }
+    });
+
+    // ... (qolgan kod o'zgarishsiz qoladi)
+    updateUI(s); // UI'ni yangilash qismi
 
         // Top Stats Update
         const f = (n) => n.toLocaleString();
