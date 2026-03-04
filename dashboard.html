@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Debetorka</title>
+    <title>Debetorka Nazorati | Expert Panel</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800;900&display=swap" rel="stylesheet">
     <style>
@@ -13,9 +13,20 @@
         .accordion-open .rotate-icon { transform: rotate(180deg); }
         .zone-header { cursor: pointer; transition: all 0.2s; }
         .zone-header:hover { background-color: #f1f5f9; }
+        
+        /* Modal va Custom Scroll */
+        .modal-overlay { opacity: 0; pointer-events: none; transition: all 0.3s ease; }
+        .modal-overlay.active { opacity: 1; pointer-events: auto; }
+        .modal-content { transform: scale(0.9); transition: all 0.3s ease; }
+        .modal-overlay.active .modal-content { transform: scale(1); }
+        
+        .custom-scroll::-webkit-scrollbar { width: 4px; }
+        .custom-scroll::-webkit-scrollbar-track { background: #f1f5f9; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
     </style>
 </head>
 <body class="text-slate-900">
+
     <div class="flex flex-col lg:flex-row min-h-screen">
         
         <div class="w-full lg:w-80 bg-slate-950 text-white p-8 shrink-0 shadow-2xl z-10 flex flex-col">
@@ -26,19 +37,15 @@
                     <div class="mt-2 h-1 w-12 bg-blue-600 rounded-full"></div>
                 </div>
 
-                <div id="monthlyStats" class="space-y-3 mb-12 overflow-y-auto flex-1">
+                <div id="monthlyStats" class="space-y-3 mb-12 overflow-y-auto flex-1 custom-scroll pr-2">
                     <p class="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-4">Kechikishlar (Oylar)</p>
-                </div>
+                    </div>
 
                 <div class="mt-auto space-y-3">
                     <button onclick="location.reload()" class="w-full py-4 bg-slate-800 text-white rounded-2xl font-800 hover:bg-blue-600 transition-all duration-300 shadow-lg border border-slate-700">
                         🔄 YANGILASH
                     </button>
-                    
-                    <a href="index.html" class="flex items-center justify-center gap-2 w-full py-4 bg-red-500/10 text-red-500 rounded-2xl font-800 hover:bg-red-500 hover:text-white transition-all duration-300 border border-red-500/20">
-                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013-3v1" />
-                        </svg>
+                    <a href="index.html" class="flex items-center justify-center gap-2 w-full py-4 bg-red-500/10 text-red-500 rounded-2xl font-800 hover:bg-red-50 hover:text-red-600 transition-all duration-300 border border-red-500/20">
                         CHIQISH
                     </a>
                 </div>
@@ -46,6 +53,7 @@
         </div>
 
         <div class="flex-1 p-6 md:p-12 max-w-7xl mx-auto w-full">
+            
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10 text-center">
                 <div class="bg-white p-6 rounded-3xl shadow-sm border-t-4 border-red-500">
                     <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Muddati o'tgan</p>
@@ -78,9 +86,30 @@
         </div>
     </div>
 
-   <script>
+    <div id="monthlyModal" class="modal-overlay fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
+        <div class="modal-content bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden">
+            <div class="p-8 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
+                <div>
+                    <h2 id="modalTitle" class="text-xl font-900 text-slate-900 tracking-tight">Yanvar, 2026</h2>
+                    <p class="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em] mt-1">Kechikkan mijozlar ro'yxati</p>
+                </div>
+                <button onclick="closeModal()" class="w-10 h-10 flex items-center justify-center rounded-full bg-white shadow-sm border border-slate-100 text-slate-400 hover:text-red-500 transition-colors">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <div id="modalList" class="p-4 max-h-[50vh] overflow-y-auto space-y-2 custom-scroll">
+                </div>
+            <div class="p-6 bg-slate-50 border-t border-slate-100 flex justify-between items-center">
+                <span class="text-[10px] font-black text-slate-400 uppercase">Jami oy bo'yicha:</span>
+                <span id="modalTotal" class="text-lg font-900 text-slate-900">0</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
     const agent = new URLSearchParams(window.location.search).get('agent');
     let rawData = [];
+    let monthlyDetails = {}; // Oylar bo'yicha ma'lumotlarni keshga olish
 
     async function init() {
         if (!agent) { window.location.href = 'index.html'; return; }
@@ -98,17 +127,15 @@
     function processStats(zones) {
         let s = { ex: 0, exC: 0, to: 0, toC: 0, pe: 0, peC: 0, tt: 0, ttC: 0, m: {} };
         const now = new Date(); now.setHours(0, 0, 0, 0);
+        monthlyDetails = {};
 
         zones.forEach(z => {
             if (z.debtors) {
                 z.debtors.forEach(d => {
-                    s.tt += d.a; 
-                    s.ttC++;
+                    s.tt += d.a; s.ttC++;
 
                     if (d.d === "No Date") {
-                        // Муддати йўқларни "Muddati bor" (Emerald) қаторига қўшамиз
-                        s.pe += d.a;
-                        s.peC++;
+                        s.pe += d.a; s.peC++;
                     } else {
                         const dDate = new Date(d.d); 
                         dDate.setHours(0, 0, 0, 0);
@@ -116,8 +143,15 @@
 
                         if (diff < 0) { 
                             s.ex += d.a; s.exC++;
+                            
+                            // Expert Grouping: Oylar bo'yicha summa va sonini hisoblash
                             let k = dDate.toLocaleString('uz-UZ', { month: 'long', year: 'numeric' });
-                            s.m[k] = (s.m[k] || 0) + 1;
+                            if (!s.m[k]) s.m[k] = { count: 0, sum: 0 };
+                            if (!monthlyDetails[k]) monthlyDetails[k] = [];
+
+                            s.m[k].count++;
+                            s.m[k].sum += d.a;
+                            monthlyDetails[k].push({ ...d, diff: Math.abs(diff) });
                         } else if (diff === 0) { 
                             s.to += d.a; s.toC++;
                         } else { 
@@ -128,6 +162,7 @@
             }
         });
 
+        // Top Stats Update
         const f = (n) => n.toLocaleString();
         document.getElementById('sumTotal').innerText = f(s.tt);
         document.getElementById('sumExpired').innerText = f(s.ex);
@@ -139,10 +174,23 @@
         document.getElementById('countToday').innerText = s.toC + " ta mijoz";
         document.getElementById('countPending').innerText = s.peC + " ta mijoz";
 
+        // Sidebar Monthly Stats Update
         const mBox = document.getElementById('monthlyStats');
         mBox.innerHTML = '<p class="text-slate-500 text-[10px] font-black uppercase tracking-widest mb-4">Kechikishlar (Oylar)</p>';
-        Object.keys(s.m).sort().forEach(m => {
-            mBox.innerHTML += `<div class="flex justify-between bg-white/5 p-3 rounded-xl text-[11px] font-bold border border-white/5 shadow-sm"><span class="text-slate-400">${m}</span><span class="text-red-400">${s.m[m]} ta</span></div>`;
+        
+        Object.keys(s.m).sort((a,b) => new Date(a) - new Date(b)).forEach(m => {
+            mBox.innerHTML += `
+                <div onclick="openMonthlyModal('${m}')" 
+                     class="group flex flex-col bg-white/5 p-4 rounded-2xl border border-white/5 hover:bg-blue-600 hover:border-blue-500 transition-all duration-300 cursor-pointer shadow-sm active:scale-95 mb-2">
+                    <div class="flex justify-between items-start mb-1">
+                        <span class="text-slate-400 group-hover:text-blue-100 text-[11px] font-black uppercase tracking-tight">${m}</span>
+                        <span class="text-red-400 group-hover:text-white text-[10px] font-black bg-red-500/10 group-hover:bg-white/20 px-2 py-0.5 rounded-md">${s.m[m].count} ta</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-white font-900 text-sm tracking-tight">${f(s.m[m].sum)}</span>
+                        <span class="text-[8px] text-slate-500 group-hover:text-blue-200 font-bold uppercase tracking-widest">Ko'rish →</span>
+                    </div>
+                </div>`;
         });
     }
 
@@ -152,7 +200,7 @@
         const now = new Date(); now.setHours(0, 0, 0, 0);
 
         zones.forEach((z, idx) => {
-            let html = `<div id="item-${idx}" class="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden ${openAll ? 'accordion-open' : ''}">
+            let html = `<div id="item-${idx}" class="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden mb-4 ${openAll ? 'accordion-open' : ''}">
                 <div onclick="toggleAccordion(${idx})" class="zone-header p-7 flex justify-between items-center select-none">
                     <div class="flex items-center gap-4">
                         <div class="rotate-icon transition-transform duration-300 bg-slate-100 p-2 rounded-full text-slate-400">
@@ -173,10 +221,8 @@
             if (z.debtors) {
                 z.debtors.forEach(d => {
                     let stTxt = "", stCl = "";
-
                     if (d.d === "No Date") {
-                        stTxt = "MUDDATI YO'Q";
-                        stCl = "bg-slate-100 text-slate-400";
+                        stTxt = "MUDDATI YO'Q"; stCl = "bg-slate-100 text-slate-400";
                     } else {
                         const dDate = new Date(d.d); dDate.setHours(0, 0, 0, 0);
                         const diff = Math.ceil((dDate - now) / 86400000);
@@ -202,6 +248,38 @@
         });
     }
 
+    // Modal Funksiyalari
+    function openMonthlyModal(monthKey) {
+        const clients = monthlyDetails[monthKey];
+        const modal = document.getElementById('monthlyModal');
+        const list = document.getElementById('modalList');
+        
+        document.getElementById('modalTitle').innerText = monthKey;
+        let total = 0;
+        list.innerHTML = '';
+
+        clients.forEach(c => {
+            total += c.a;
+            list.innerHTML += `
+                <div class="p-4 flex justify-between items-center bg-slate-50 rounded-2xl border border-slate-100">
+                    <div class="flex-1 pr-4">
+                        <p class="font-800 text-slate-800 text-[12px] leading-tight mb-1">${c.n}</p>
+                        <span class="px-2 py-1 rounded-lg bg-red-100 text-red-600 text-[8px] font-black">${c.diff} KUN KECHIKKAN</span>
+                    </div>
+                    <div class="text-right">
+                        <p class="font-900 text-slate-900 text-sm">${c.a.toLocaleString()}</p>
+                    </div>
+                </div>`;
+        });
+
+        document.getElementById('modalTotal').innerText = total.toLocaleString() + " so'm";
+        modal.classList.add('active');
+    }
+
+    function closeModal() {
+        document.getElementById('monthlyModal').classList.remove('active');
+    }
+
     function toggleAccordion(id) {
         document.getElementById('item-' + id).classList.toggle('accordion-open');
     }
@@ -216,7 +294,12 @@
         render(filt, true);
     }
 
+    // Modal tashqarisiga bosilganda yopish
+    window.onclick = function(event) {
+        if (event.target == document.getElementById('monthlyModal')) closeModal();
+    }
+
     init();
-</script>
+    </script>
 </body>
 </html>

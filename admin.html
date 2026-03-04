@@ -11,14 +11,20 @@
         .gradient-sidebar { background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%); }
         .kpi-table th { font-size: 9px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; padding-bottom: 8px; }
         .kpi-table td { font-size: 11px; padding: 6px 0; border-bottom: 1px solid #f1f5f9; }
-        .hide-scroll::-webkit-scrollbar { display: none; }
+        /* Scrollbarni chiroyli qilish */
+        .custom-scroll::-webkit-scrollbar { width: 4px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        
+        details > summary { list-style: none; }
+        details > summary::-webkit-details-marker { display: none; }
     </style>
 </head>
 <body class="text-slate-900 overflow-x-hidden">
 
     <div class="flex flex-col xl:flex-row min-h-screen">
         
-        <div class="w-full xl:w-[400px] gradient-sidebar text-white p-8 shrink-0 shadow-2xl z-10">
+        <div class="w-full xl:w-[400px] gradient-sidebar text-white p-8 shrink-0 shadow-2xl z-10 relative">
             <div class="sticky top-8">
                 <div class="mb-10">
                     <p class="text-blue-400 font-bold text-[10px] uppercase tracking-[0.3em] mb-1">Korxona Nazorati</p>
@@ -26,19 +32,29 @@
                 </div>
 
                 <div class="space-y-4 mb-10">
-                    <div class="bg-blue-600 p-7 rounded-[2.5rem] shadow-xl">
-                        <p class="text-[10px] font-black text-blue-200 uppercase tracking-widest mb-1">Umumiy Debitorlik</p>
-                        <h2 id="globalTotal" class="text-3xl font-800 leading-none">0</h2>
-                        <span id="globalClients" class="text-xs font-bold text-blue-100 mt-3 block opacity-70 italic">Yuklanmoqda...</span>
-                    </div>
+                    
+                    <details class="group bg-blue-600 rounded-[2.5rem] shadow-xl overflow-hidden cursor-pointer transition-all">
+                        <summary class="p-7 outline-none relative">
+                            <p class="text-[10px] font-black text-blue-200 uppercase tracking-widest mb-1">Umumiy Debitorlik</p>
+                            <h2 id="globalTotal" class="text-3xl font-800 leading-none">0</h2>
+                            <span id="globalClients" class="text-xs font-bold text-blue-100 mt-3 block opacity-70 italic">Yuklanmoqda...</span>
+                            <div class="absolute right-7 top-10 text-blue-200 group-open:rotate-180 transition-transform">▼</div>
+                        </summary>
+                        <div id="globalAllList" class="bg-blue-800/50 p-5 max-h-64 overflow-y-auto custom-scroll relative">
+                        </div>
+                    </details>
 
                     <div class="grid grid-cols-2 gap-4">
-                        <div class="bg-white/5 p-5 rounded-3xl border border-white/10">
-                            <p class="text-[9px] font-black text-red-400 uppercase tracking-widest mb-1">Muddati o'tgan</p>
-                            <h2 id="globalExpired" class="text-lg font-800 text-white">0</h2>
-                        </div>
-                        <div id="trendBox" class="bg-white/5 p-5 rounded-3xl border border-white/10 hidden">
-                            </div>
+                        <details class="bg-white/5 rounded-3xl border border-white/10 group overflow-hidden cursor-pointer flex-1">
+                            <summary class="p-5 outline-none relative">
+                                <p class="text-[9px] font-black text-red-400 uppercase tracking-widest mb-1">Muddati o'tgan</p>
+                                <h2 id="globalExpired" class="text-lg font-800 text-white">0</h2>
+                                <span id="globalExpiredClients" class="text-[9px] text-red-300 font-bold mt-1 block">0 ta mijoz</span>
+                            </summary>
+                            <div id="globalExList" class="p-4 bg-black/20 max-h-48 overflow-y-auto custom-scroll relative"></div>
+                        </details>
+
+                        <div id="trendBox" class="bg-white/5 p-5 rounded-3xl border border-white/10 hidden"></div>
                     </div>
                 </div>
 
@@ -57,7 +73,7 @@
             <header class="mb-10 flex justify-between items-end">
                 <div>
                     <h2 class="text-3xl font-800 text-slate-800 tracking-tight">Agentlar Faoliyati</h2>
-                    <p class="text-slate-400 font-bold text-sm">Debitorlik va KPI ko'rsatkichlari integratsiyasi</p>
+                    <p class="text-slate-400 font-bold text-sm">Debitorlik va real-vaqt KPI tahlili</p>
                 </div>
                 <div class="text-right hidden md:block">
                     <p class="text-[10px] font-black text-slate-400 uppercase">Oxirgi yangilanish</p>
@@ -65,36 +81,26 @@
                 </div>
             </header>
 
-            <div id="agentsArea" class="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-2 gap-8">
-                </div>
+            <div id="agentsArea" class="flex flex-col gap-8 w-full max-w-6xl mx-auto"></div>
         </div>
     </div>
 
     <script>
         // SOZLAMALAR
         const API_FIREBASE = "https://debetorka-c758e-default-rtdb.europe-west1.firebasedatabase.app";
-        const API_RITM = "https://afsona.ritm.uz/ru/api/v1/staff/salary/?year=2026&month=2&page_size=25&is_approved=all";
         const RITM_TOKEN = "bf393005b50920a5f8906c818591ec8964da00d6";
 
-        // Agentlarni Ritm.uz IDlari bilan bog'lash
         const AGENT_MAPPING = {
-            "Шухрат": 556,
-            "Бунед": 557,
-            "Бобур": 558,
-            "Хумоюн": 559,
-            "Санжар": 560,
-            "Мунис": 561,
-            "Зокиржон": 562,
-            "Акбар": 563,
-            "Садокат": 564,
-            "Тилло": 565,
-            // O'zingizdagi IDlarni shu yerga qo'shing
-            // Boshqa agentlar...
+            "Шухрат": 556, "Бунед": 557, "Бобур": 558, "Хумоюн": 559,
+            "Санжар": 560, "Мунис": 561, "Зокиржон": 562, "Акбар": 563,
+            "Садокат": 564, "Тилло": 565
         };
+
+        const MONTHS_UZ = ["Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun", "Iyul", "Avgust", "Sentabr", "Oktabr", "Noyabr", "Dekabr"];
 
         async function init() {
             const area = document.getElementById('agentsArea');
-            area.innerHTML = `<div class="col-span-full py-20 text-center font-bold text-slate-400 animate-pulse">Ma'lumotlar tahlil qilinmoqda...</div>`;
+            area.innerHTML = `<div class="py-20 text-center font-bold text-slate-400 animate-pulse w-full">Ma'lumotlar tahlil qilinmoqda...</div>`;
             
             try {
                 const res = await fetch(`${API_FIREBASE}/reports.json`);
@@ -106,55 +112,154 @@
                 if (allData) processAdminData(allData, historyData);
                 document.getElementById('lastUpdate').innerText = new Date().toLocaleTimeString('uz-UZ');
             } catch (e) {
-                console.error(e);
-                area.innerHTML = `<div class="text-red-500">Xatolik yuz berdi: ${e.message}</div>`;
+                area.innerHTML = `<div class="text-red-500 font-bold text-center w-full">Tarmoq xatosi yuz berdi: ${e.message}</div>`;
             }
         }
 
         async function fetchKPI(agentId) {
-    const token = "bf393005b50920a5f8906c818591ec8964da00d6";
-    
-    // Hozirgi sana (2026-yil, 2-oy)
-    const year = 2026; 
-    const month = 2;
+            const dateNow = new Date();
+            const year = dateNow.getFullYear(); 
+            const month = dateNow.getMonth() + 1; 
+            const url = `https://afsona.ritm.uz/ru/api/v1/staff/salary/${agentId}/?year=${year}&month=${month}`;
 
-    const url = `https://afsona.ritm.uz/ru/api/v1/staff/salary/${agentId}/?year=${year}&month=${month}`;
-
-    try {
-        const response = await fetch(url, {
-            headers: { "Authorization": `Token ${token}` }
-        });
-        const data = await response.json();
-        
-        // DIAGNOSTIKA: Konsolda ma'lumot bor-yo'qligini ko'ramiz
-        console.log(`Agent ID: ${agentId} uchun ma'lumot:`, data.balances);
-
-        if (!data.balances || data.balances.length === 0) {
-            console.warn(`Diqqat: ${agentId} uchun ${year}-yil ${month}-oyda KPI ma'lumotlari bo'sh!`);
-            return null;
+            try {
+                const response = await fetch(url, { headers: { "Authorization": `Token ${RITM_TOKEN}` } });
+                const data = await response.json();
+                if (!data.balances || data.balances.length === 0) return null;
+                return { balances: data.balances, year, monthName: MONTHS_UZ[month - 1] };
+            } catch (e) { return null; }
         }
-        return data.balances;
-    } catch (e) {
-        console.error("Fetch xatosi:", e);
-        return null;
-    }
+
+        // Qator HTML yashovchi
+        function getClientRow(name, amount, date, isDark = false) {
+            let n = name || "Noma'lum mijoz";
+            let d = date !== "No Date" ? date : "Muddatsiz";
+            let a = amount.toLocaleString();
+
+            if(isDark) {
+                return `<div class="flex justify-between items-center text-[10px] py-1.5 border-b border-white/5 last:border-0 hover:bg-white/5 px-1">
+                    <span class="truncate pr-2 text-white/90 font-medium">${n}</span>
+                    <span class="font-bold text-white whitespace-nowrap">${a}</span>
+                </div>`;
+            } else {
+                return `<div class="flex justify-between items-center text-[10px] py-1.5 border-b border-slate-100 last:border-0 hover:bg-slate-50 px-1">
+                    <span class="truncate pr-2 text-slate-700 font-medium">${n}</span>
+                    <span class="font-bold text-slate-900 whitespace-nowrap">${a}</span>
+                </div>`;
+            }
+        }
+
+        // Mijozlarni guruhlarga ajratish yordamchisi
+        function addClientToGroup(groupObj, dateStr, clientData) {
+            let monthKey = "9999-99"; // Default (Muddatsiz)
+            let label = "MUDDATSIZ";
+
+            if (dateStr && dateStr !== "No Date") {
+                const d = new Date(dateStr);
+                monthKey = dateStr.substring(0, 7); // "2026-02" tartiblash uchun
+                label = `${MONTHS_UZ[d.getMonth()].toUpperCase()} ${d.getFullYear()}`;
+            }
+
+            const key = `${monthKey}|${label}`;
+            if (!groupObj[key]) groupObj[key] = [];
+            groupObj[key].push(clientData);
+        }
+
+      // Oylar bo'yicha chiroyli ro'yxatni yasaydigan funksiya (EXPERT MODE + SUMMA)
+function renderGroupedList(groups, isDark = false, emptyMsg = "Ma'lumot yo'q") {
+    const keys = Object.keys(groups).sort(); 
+    if (keys.length === 0) return `<div class="text-[10px] ${isDark ? 'text-white/40' : 'text-slate-400'} mt-2">${emptyMsg}</div>`;
+    
+    let html = '';
+    keys.forEach(k => {
+        const label = k.split('|')[1];
+        const list = groups[k];
+        
+        // SHU OYDAGI JAMI SUMMANI HISOBLASH
+        const monthTotal = list.reduce((acc, curr) => acc + curr.a, 0);
+        
+        // Oylar uchun sarlavha (Sticky Header + Summa qo'shilgan)
+        if (isDark) {
+            html += `
+            <div class="sticky top-0 z-10 flex justify-between items-center bg-slate-800/95 backdrop-blur-md px-2 py-2 mt-3 mb-1 rounded-lg text-[9px] border border-white/10 shadow-lg">
+                <span class="font-black text-blue-300 uppercase">${label}</span>
+                <div class="flex items-center gap-2">
+                    <span class="font-bold text-white bg-blue-500/30 px-2 py-0.5 rounded-md border border-blue-400/30">
+                        ${monthTotal.toLocaleString()}
+                    </span>
+                    <span class="font-bold text-slate-400 bg-white/5 px-1.5 py-0.5 rounded border border-white/10">
+                        ${list.length} ta
+                    </span>
+                </div>
+            </div>`;
+        } else {
+            html += `
+            <div class="sticky top-0 z-10 flex justify-between items-center bg-slate-100/95 backdrop-blur-md px-2 py-2 mt-3 mb-1 rounded-lg text-[9px] border border-slate-200 shadow-sm">
+                <span class="font-black text-slate-500 uppercase">${label}</span>
+                <div class="flex items-center gap-2">
+                    <span class="font-extrabold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">
+                        ${monthTotal.toLocaleString()}
+                    </span>
+                    <span class="font-bold text-slate-500 bg-white px-1.5 py-0.5 rounded border border-slate-200 shadow-sm">
+                        ${list.length} ta
+                    </span>
+                </div>
+            </div>`;
+        }
+        
+        list.forEach(item => {
+            html += getClientRow(item.n, item.a, item.d, isDark);
+        });
+    });
+    return html;
 }
 
         async function processAdminData(allData, historyData) {
-            let global = { tt: 0, ex: 0, clients: 0 };
+            // Endi array o'rniga obyektlar orqali guruhlaymiz
+            let global = { tt: 0, ex: 0, td: 0, ft: 0, clients: 0, exCount: 0, allGroups: {}, exGroups: {} };
             let agentList = [];
+            
             const now = new Date(); now.setHours(0,0,0,0);
 
             for (let name in allData) {
-                let aStats = { name: name, tt: 0, ex: 0, clients: 0 };
+                let aStats = { name: name, tt: 0, ex: 0, td: 0, ft: 0, allCount: 0, exCount: 0, tdCount: 0, ftCount: 0, 
+                               allGroups: {}, exGroups: {}, tdGroups: {}, ftGroups: {} };
+                
                 if (allData[name].zones) {
                     allData[name].zones.forEach(z => {
                         if (z.debtors) {
                             z.debtors.forEach(d => {
+                                let clientName = d.c || d.n || d.name || d.client || 'Mijoz';
+                                let cObj = { n: clientName, a: d.a, d: d.d };
+
+                                // Jami Qarz
                                 aStats.tt += d.a; global.tt += d.a;
-                                aStats.clients++; global.clients++;
-                                if (d.d !== "No Date" && new Date(d.d) < now) {
-                                    aStats.ex += d.a; global.ex += d.a;
+                                aStats.allCount++; global.clients++;
+                                addClientToGroup(aStats.allGroups, d.d, cObj);
+                                addClientToGroup(global.allGroups, d.d, cObj);
+
+                                if (d.d !== "No Date") {
+                                    let dDate = new Date(d.d);
+                                    dDate.setHours(0,0,0,0);
+                                    
+                                    if (dDate < now) { // Kechikkan
+                                        aStats.ex += d.a; global.ex += d.a;
+                                        aStats.exCount++; global.exCount++;
+                                        addClientToGroup(aStats.exGroups, d.d, cObj);
+                                        addClientToGroup(global.exGroups, d.d, cObj);
+                                    } else if (dDate.getTime() === now.getTime()) { // Bugun
+                                        aStats.td += d.a; global.td += d.a;
+                                        aStats.tdCount++;
+                                        addClientToGroup(aStats.tdGroups, d.d, cObj);
+                                    } else { // Muddati bor
+                                        aStats.ft += d.a; global.ft += d.a;
+                                        aStats.ftCount++;
+                                        addClientToGroup(aStats.ftGroups, d.d, cObj);
+                                    }
+                                } else { // Sana yo'q
+                                    aStats.ft += d.a; global.ft += d.a;
+                                    aStats.ftCount++;
+                                    addClientToGroup(aStats.ftGroups, d.d, cObj);
                                 }
                             });
                         }
@@ -163,10 +268,14 @@
                 agentList.push(aStats);
             }
 
-            // UI Global
+            // Global Dashboard Update
             document.getElementById('globalTotal').innerText = global.tt.toLocaleString();
+            document.getElementById('globalClients').innerText = global.clients + " ta mijoz";
+            document.getElementById('globalAllList').innerHTML = renderGroupedList(global.allGroups, true);
+
             document.getElementById('globalExpired').innerText = global.ex.toLocaleString();
-            document.getElementById('globalClients').innerText = global.clients + " ta faol mijoz";
+            document.getElementById('globalExpiredClients').innerText = global.exCount + " ta mijoz";
+            document.getElementById('globalExList').innerHTML = renderGroupedList(global.exGroups, true, "Kechikkanlar yo'q");
 
             if (historyData) calculateTrend(global.tt, historyData);
             
@@ -193,93 +302,139 @@
             }
         }
 
-        async function renderAgents(agentList) {
-            const area = document.getElementById('agentsArea');
-            area.innerHTML = '';
+   async function renderAgents(agentList) {
+    const area = document.getElementById('agentsArea');
+    area.innerHTML = '';
 
-            for (const a of agentList) {
-                const quality = a.tt > 0 ? (100 - (a.ex / a.tt * 100)).toFixed(1) : 100;
-                const ritmId = AGENT_MAPPING[a.name];
-                let kpiHtml = `<div class="mt-4 p-4 bg-slate-50 rounded-2xl text-[10px] text-slate-400 italic">Ritm.uz ma'lumotlari topilmadi</div>`;
+    for (const a of agentList) {
+        const quality = a.tt > 0 ? (100 - (a.ex / a.tt * 100)).toFixed(1) : 100;
+        const ritmId = AGENT_MAPPING[a.name];
+        
+        let kpiHtml = `<div class="mt-4 p-4 bg-slate-50 rounded-2xl text-[10px] text-slate-400 italic">Ritm.uz ma'lumotlari topilmadi</div>`;
 
-                if (ritmId) {
-                    const balances = await fetchKPI(ritmId);
-                    if (balances) {
-                        kpiHtml = `
-                        <div class="mt-6">
-                            <div class="flex items-center justify-between mb-3">
-                                <p class="text-[10px] font-black text-blue-600 uppercase tracking-widest">KPI Tendensiya</p>
-                                <span class="text-[9px] text-slate-400 font-bold">Fevral 2026</span>
-                            </div>
-                            <div class="overflow-x-auto">
-                                <table class="w-full kpi-table">
-                                    <thead>
-                                        <tr>
-                                            <th class="text-left">KPI Nomi</th>
-                                            <th class="text-right">Plan</th>
-                                            <th class="text-right">Fakt</th>
-                                            <th class="text-right">%</th>
-                                            <th class="text-right">Prognoz</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        ${balances.map(b => {
-                                            const p = b.plan_amount > 0 ? (b.fact_amount / b.plan_amount * 100).toFixed(1) : 0;
-                                            const fP = b.plan_amount > 0 ? (b.plan_forecast / b.plan_amount * 100).toFixed(1) : 0;
-                                            return `
-                                                <tr>
-                                                    <td class="font-bold text-slate-600 truncate max-w-[100px]">${b.performance_indicator.name}</td>
-                                                    <td class="text-right text-slate-400">${Math.round(b.plan_amount).toLocaleString()}</td>
-                                                    <td class="text-right font-black text-slate-800">${Math.round(b.fact_amount).toLocaleString()}</td>
-                                                    <td class="text-right font-black ${p >= 50 ? 'text-emerald-500' : 'text-amber-500'}">${p}%</td>
-                                                    <td class="text-right font-bold text-blue-500">${fP}%</td>
-                                                </tr>
-                                            `;
-                                        }).join('')}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>`;
-                    }
-                }
-
-                area.innerHTML += `
-                    <div class="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100 hover:shadow-2xl transition-all duration-500 group">
-                        <div class="flex justify-between items-start mb-6">
-                            <div>
-                                <h3 class="text-2xl font-800 text-slate-800 group-hover:text-blue-600 transition-colors">${a.name}</h3>
-                                <p class="text-xs font-bold text-slate-400 mt-1">${a.clients} ta qarzdor mijoz</p>
-                            </div>
-                            <div class="text-right">
-                                <div class="px-4 py-2 bg-slate-50 rounded-2xl border border-slate-100">
-                                    <p class="text-[8px] font-black text-slate-400 uppercase">Ish sifati</p>
-                                    <p class="text-lg font-900 ${quality > 80 ? 'text-emerald-500' : 'text-amber-500'}">${quality}%</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="grid grid-cols-2 gap-4">
-                            <div class="bg-slate-50 p-4 rounded-2xl">
-                                <p class="text-[9px] font-black text-slate-400 uppercase">Jami Qarz</p>
-                                <p class="text-md font-800">${a.tt.toLocaleString()}</p>
-                            </div>
-                            <div class="bg-red-50 p-4 rounded-2xl">
-                                <p class="text-[9px] font-black text-red-400 uppercase">Kechikkan</p>
-                                <p class="text-md font-800 text-red-600">${a.ex.toLocaleString()}</p>
-                            </div>
-                        </div>
-
-                        ${kpiHtml}
-                        
-                        <button onclick="window.location.href='dashboard.html?agent=${encodeURIComponent(a.name)}'" 
-                                class="w-full mt-6 py-3 bg-slate-100 text-slate-600 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all">
-                            Batafsil tahlil →
-                        </button>
+        if (ritmId) {
+            const kpiData = await fetchKPI(ritmId);
+            if (kpiData && kpiData.balances) {
+                kpiHtml = `
+                <div class="mt-6 border border-slate-100 rounded-2xl p-4 bg-white/50">
+                    <div class="flex items-center justify-between mb-3">
+                        <p class="text-[10px] font-black text-blue-600 uppercase tracking-widest">KPI Tendensiya</p>
+                        <span class="text-[9px] text-slate-400 font-bold bg-slate-100 px-2 py-1 rounded-md">Fevral 2026</span>
                     </div>
-                `;
+                    <div class="overflow-x-auto">
+                        <table class="w-full kpi-table min-w-[500px]">
+                            <thead>
+                                <tr>
+                                    <th class="text-left w-1/3">KPI Nomi</th>
+                                    <th class="text-right">Plan</th>
+                                    <th class="text-right">Fakt</th>
+                                    <th class="text-right">%</th>
+                                    <th class="text-right">Prognoz</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${kpiData.balances.map(b => {
+                                    const planSum = b.plan_amount || 0;
+                                    const p = planSum > 0 ? (b.fact_amount / planSum * 100).toFixed(1) : 0;
+                                    const fP = planSum > 0 ? (b.plan_forecast / planSum * 100).toFixed(1) : 0;
+                                    return `
+                                        <tr class="hover:bg-slate-50 transition-colors">
+                                            <td class="font-bold text-slate-600 truncate max-w-[150px]">${b.performance_indicator.name}</td>
+                                            <td class="text-right text-slate-400">${Math.round(planSum).toLocaleString()}</td>
+                                            <td class="text-right font-black text-slate-800">${Math.round(b.fact_amount).toLocaleString()}</td>
+                                            <td class="text-right font-black ${p >= 50 ? 'text-emerald-500' : 'text-amber-500'}">${p}%</td>
+                                            <td class="text-right font-bold text-blue-500">${fP}%</td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>`;
             }
         }
 
+        area.innerHTML += `
+            <div class="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm border border-slate-100 hover:shadow-xl transition-shadow duration-300 group w-full">
+                
+                <div class="flex flex-col md:flex-row justify-between items-start mb-6 gap-4">
+                    <div class="flex flex-wrap items-center gap-3">
+                        <div>
+                            <h3 class="text-2xl font-800 text-slate-800 group-hover:text-blue-600 transition-colors uppercase tracking-tight">${a.name}</h3>
+                            <p class="text-xs font-bold text-slate-400 mt-1">${a.allCount} ta qarzdor mijoz jalb qilingan</p>
+                        </div>
+                        
+                        <button onclick="window.location.href='dashboard.html?agent=${encodeURIComponent(a.name)}'" 
+                                class="px-4 py-2 bg-blue-60 text-blue-600 rounded-xl font-800 text-[10px] hover:bg-blue-600 hover:text-white transition-all shadow-sm border border-blue-100 flex items-center gap-2 active:scale-95">
+                          BATAFSIL
+                        </button>
+                    </div>
+
+                    <div class="px-4 py-2 bg-slate-50 rounded-2xl border border-slate-100 min-w-[100px] text-center">
+                        <p class="text-[8px] font-black text-slate-400 uppercase">Ish sifati</p>
+                        <p class="text-xl font-900 ${quality > 80 ? 'text-emerald-500' : 'text-amber-500'}">${quality}%</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                    <details class="bg-slate-50 rounded-2xl border border-slate-100 group/item cursor-pointer overflow-hidden">
+                        <summary class="p-4 outline-none relative list-none">
+                            <div class="flex justify-between items-center mb-1">
+                                <p class="text-[9px] font-black text-slate-400 uppercase">Jami Qarz</p>
+                                <span class="text-[9px] bg-slate-200 text-slate-600 px-1.5 rounded">${a.allCount}</span>
+                            </div>
+                            <p class="text-md font-800 text-slate-800">${a.tt.toLocaleString()}</p>
+                        </summary>
+                        <div class="px-3 pb-3 max-h-48 overflow-y-auto custom-scroll border-t border-slate-200/50 bg-white">
+                            ${renderGroupedList(a.allGroups)}
+                        </div>
+                    </details>
+
+                    <details class="bg-red-50 rounded-2xl border border-red-100 group/item cursor-pointer overflow-hidden">
+                        <summary class="p-4 outline-none relative list-none">
+                            <div class="flex justify-between items-center mb-1">
+                                <p class="text-[9px] font-black text-red-400 uppercase">Kechikkan</p>
+                                <span class="text-[9px] bg-red-200 text-red-700 px-1.5 rounded">${a.exCount}</span>
+                            </div>
+                            <p class="text-md font-800 text-red-600">${a.ex.toLocaleString()}</p>
+                        </summary>
+                        <div class="px-3 pb-3 max-h-48 overflow-y-auto custom-scroll border-t border-red-200/50 bg-white">
+                            ${renderGroupedList(a.exGroups, false, "Kechikkanlar yo'q")}
+                        </div>
+                    </details>
+
+                    <details class="bg-amber-50 rounded-2xl border border-amber-100 group/item cursor-pointer overflow-hidden">
+                        <summary class="p-4 outline-none relative list-none">
+                            <div class="flex justify-between items-center mb-1">
+                                <p class="text-[9px] font-black text-amber-500 uppercase">Muddati Bugun</p>
+                                <span class="text-[9px] bg-amber-200 text-amber-700 px-1.5 rounded">${a.tdCount}</span>
+                            </div>
+                            <p class="text-md font-800 text-amber-600">${a.td.toLocaleString()}</p>
+                        </summary>
+                        <div class="px-3 pb-3 max-h-48 overflow-y-auto custom-scroll border-t border-amber-200/50 bg-white">
+                            ${renderGroupedList(a.tdGroups, false, "Bugungi to'lovlar yo'q")}
+                        </div>
+                    </details>
+
+                    <details class="bg-emerald-50 rounded-2xl border border-emerald-100 group/item cursor-pointer overflow-hidden">
+                        <summary class="p-4 outline-none relative list-none">
+                            <div class="flex justify-between items-center mb-1">
+                                <p class="text-[9px] font-black text-emerald-500 uppercase">Muddati Bor</p>
+                                <span class="text-[9px] bg-emerald-200 text-emerald-700 px-1.5 rounded">${a.ftCount}</span>
+                            </div>
+                            <p class="text-md font-800 text-emerald-600">${a.ft.toLocaleString()}</p>
+                        </summary>
+                        <div class="px-3 pb-3 max-h-48 overflow-y-auto custom-scroll border-t border-emerald-200/50 bg-white">
+                            ${renderGroupedList(a.ftGroups, false, "Kelajakdagi to'lovlar yo'q")}
+                        </div>
+                    </details>
+                </div>
+
+                ${kpiHtml}
+            </div>
+        `;
+    }
+}
         init();
     </script>
 </body>
